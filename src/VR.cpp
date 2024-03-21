@@ -11,6 +11,7 @@
 #include <vector>
 
 extern Config gCfg;
+extern int64_t gSeatMovement;
 
 IDirect3DVR9* gD3DVR = nullptr;
 
@@ -27,6 +28,40 @@ constexpr static bool IsAAEnabledForRenderTarget(RenderTarget t)
 bool VRInterface::IsUsingTextureToRender(RenderTarget t)
 {
     return !(IsAAEnabledForRenderTarget(t) || (GetRuntimeType() == OPENXR && t < 2));
+}
+
+const M4& VRInterface::GetSeatTranslationMatrix(int64_t& movement) {
+    constexpr auto divider = 200.0f;
+	switch (movement) {
+		case 0: break;
+		case 1: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { 0, 0, 1.0f / divider });
+			break;
+		}
+		case 2: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { -1.0f / divider, 0, 0 });
+			break;
+		}
+		case 3: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { 0, 0, -1.0f / divider });
+			break;
+		}
+		case 4: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { 1.0f / divider, 0, 0 });
+			break;
+		}
+		case 5: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { 0, 1.0f / divider, 0 });
+			break;
+		}
+		case 6: {
+			seatTranslationMatrix = glm::translate(seatTranslationMatrix, { 0, -1.0f / divider, 0 });
+			break;
+		}
+    }
+    // Reset the copied movement to make just one adjustment per frame
+    movement = 0;
+    return seatTranslationMatrix;
 }
 
 static bool CreateMenuScreenCompanionWindowBuffer(IDirect3DDevice9* dev)

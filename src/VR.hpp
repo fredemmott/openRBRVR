@@ -119,6 +119,7 @@ protected:
     M4 cockpitProjection[2];
     M4 stageProjection[2];
     M4 mainMenuProjection[2];
+    M4 seatTranslationMatrix = glm::identity<M4>();
 
     bool CreateRenderTarget(IDirect3DDevice9* dev, RenderContext& ctx, RenderTarget tgt, D3DFORMAT fmt, uint32_t w, uint32_t h);
     void InitSurfaces(IDirect3DDevice9* dev, RenderContext& ctx, uint32_t resx2d, uint32_t resy2d);
@@ -170,6 +171,8 @@ public:
     {
         currentRenderContext = &renderContexts[name];
     }
+
+    const M4& GetSeatTranslationMatrix(int64_t& movement);
 };
 
 bool CreateQuad(IDirect3DDevice9* dev, RenderTarget tgt, float aspect);

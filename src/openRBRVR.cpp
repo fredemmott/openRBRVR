@@ -29,6 +29,9 @@ bool gDrawOverlayBorder;
 
 IDirect3DDevice9* gD3Ddev = nullptr;
 
+static int64_t gSeatMovement2;
+extern int64_t gSeatMovement;
+
 namespace shader {
     static M4 gCurrentProjectionMatrix;
     static M4 gCurrentProjectionMatrixInverse;
@@ -369,6 +372,8 @@ void __fastcall RBRHook_Render(void* p)
         }
     }
 
+    gSeatMovement2 = gSeatMovement;
+
     auto ptr = reinterpret_cast<uintptr_t>(p);
     auto doRendering = *reinterpret_cast<uint32_t*>(ptr + 0x720) == 0;
     auto gameMode = *reinterpret_cast<GameMode*>(ptr + 0x728);
@@ -618,12 +623,13 @@ HRESULT __stdcall DXHook_SetVertexShaderConstantF(IDirect3DDevice9* This, UINT S
             const auto& projection = gVR->GetProjection(gVRRenderTarget.value(), isRenderingCockpit ? Projection::Cockpit : Projection::Stage);
             const auto& eyepos = gVR->GetEyePos(gVRRenderTarget.value());
             const auto& pose = gVR->GetPose(gVRRenderTarget.value());
+            const auto& seatTranslation = gVR->GetSeatTranslationMatrix(gSeatMovement2);
 
             // MVP matrix
             // MV = P^-1 * MVP
             // MVP[VRRenderTarget] = P[VRRenderTarget] * MV
             const auto mv = shader::gCurrentProjectionMatrixInverse * orig;
-            const auto mvp = glm::transpose(projection * eyepos * pose * gFlipZMatrix * GetHorizonLockMatrix() * mv);
+            const auto mvp = glm::transpose(projection * eyepos * pose * seatTranslation * gFlipZMatrix * GetHorizonLockMatrix() * mv);
             return hooks::setvertexshaderconstantf.call(gD3Ddev, StartRegister, glm::value_ptr(mvp), Vector4fCount);
         } else if (StartRegister == 20) {
             // Sky/fog
@@ -641,8 +647,9 @@ HRESULT __stdcall DXHook_SetVertexShaderConstantF(IDirect3DDevice9* This, UINT S
             // For the fog, the orientation is close enough for both eyes when always rendered with the same eye.
             glm::decompose(gVR->GetPose(LeftEye), scale, orientation, translation, skew, perspective);
             const auto rotation = glm::mat4_cast(glm::conjugate(orientation));
+            const auto& seatTranslation = gVR->GetSeatTranslationMatrix(gSeatMovement2);
 
-            const auto m = glm::transpose(rotation * orig);
+            const auto m = glm::transpose(rotation * seatTranslation * orig);
             return hooks::setvertexshaderconstantf.call(gD3Ddev, StartRegister, glm::value_ptr(m), Vector4fCount);
         }
     }
@@ -663,7 +670,7 @@ HRESULT __stdcall DXHook_SetTransform(IDirect3DDevice9* This, D3DTRANSFORMSTATET
         return hooks::settransform.call(gD3Ddev, State, &fixedfunction::gCurrentProjectionMatrix);
     } else if (gVRRenderTarget && State == D3DTS_VIEW) {
         fixedfunction::gCurrentViewMatrix = D3DFromM4(
-            gVR->GetEyePos(gVRRenderTarget.value()) * gVR->GetPose(gVRRenderTarget.value()) * gFlipZMatrix * GetHorizonLockMatrix() * M4FromD3D(*pMatrix));
+            gVR->GetEyePos(gVRRenderTarget.value()) * gVR->GetPose(gVRRenderTarget.value()) * gVR->GetSeatTranslationMatrix(gSeatMovement2) * gFlipZMatrix * GetHorizonLockMatrix() * M4FromD3D(*pMatrix));
         return hooks::settransform.call(gD3Ddev, State, &fixedfunction::gCurrentViewMatrix);
     }
 
